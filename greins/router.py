@@ -1,4 +1,3 @@
-import copy
 import logging
 
 from glob import glob
@@ -24,7 +23,7 @@ class Router(object):
                 continue
             self.map.extend(
                 (Route(name, url,
-                       **copy.deepcopy(self.defaults).update(kwargs))
+                       **dict(self.defaults.items() + kwargs.items()))
                  for name, url, kwargs in routes))
 
     def __call__(self, environ, start_response):
