@@ -2,7 +2,7 @@ import logging
 
 from glob import glob
 from os import getenv
-from os.path import join
+from os.path import basename, join, splitext
 
 from routes import Mapper
 from routes.route import Route
@@ -15,6 +15,7 @@ class Router(object):
         self.defaults = {}
 
         for cf in glob(join(CONF_D, '*.py')):
+            namespace = splitext(basename(cf))[0]
             routes = []
             try:
                 execfile(cf, {}, {'routes': routes})
@@ -24,7 +25,7 @@ class Router(object):
             self.map.extend(
                 (Route(name, url,
                        **dict(self.defaults.items() + kwargs.items()))
-                 for name, url, kwargs in routes))
+                 for name, url, kwargs in routes), namespace)
 
     def __call__(self, environ, start_response):
         match = self.map.routematch(environ=environ)
