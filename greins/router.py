@@ -13,6 +13,7 @@ class Router(object):
     def __init__(self):
         self.map = Mapper()
         self.defaults = {}
+        self.logger = logging.getLogger('gunicorn')
 
         for cf in glob(join(CONF_D, '*.py')):
             namespace = '/' + splitext(basename(cf))[0]
@@ -20,12 +21,13 @@ class Router(object):
             try:
                 execfile(cf, {}, {'routes': routes})
             except:
-                logging.exception("Exception loading config for %s" % cf)
+                self.logger.exception("Exception loading config for %s" % cf)
                 continue
             self.map.extend(
                 (Route(None, url,
                        **dict(self.defaults.items() + kwargs.items()))
                  for url, kwargs in routes), namespace)
+            self.logger.info("Loaded routes from %s" % namespace[1:])
 
     def __call__(self, environ, start_response):
         match = self.map.routematch(environ=environ)
