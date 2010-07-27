@@ -15,7 +15,7 @@ class Router(object):
         self.defaults = {}
 
         for cf in glob(join(CONF_D, '*.py')):
-            namespace = splitext(basename(cf))[0]
+            namespace = '/' + splitext(basename(cf))[0]
             routes = []
             try:
                 execfile(cf, {}, {'routes': routes})
