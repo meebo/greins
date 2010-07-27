@@ -1,4 +1,5 @@
 import logging
+import string
 
 from glob import glob
 from os import getenv
@@ -28,6 +29,7 @@ class Router(object):
                        **dict(self.defaults.items() + kwargs.items()))
                  for url, kwargs in routes), namespace)
             self.logger.info("Loaded routes from %s" % namespace[1:])
+        self.logger.debug("Greins booted\n%s" % self)
 
     def __call__(self, environ, start_response):
         match = self.map.routematch(environ=environ)
@@ -35,5 +37,11 @@ class Router(object):
             start_response('404 Not Found', {})
             return []
         return match[0]['app'](environ, start_response)
+
+    def __str__(self):
+        return "Path\t\tConfiguration\n" + string.join(
+            ("%s\t\t%s" % (r.routepath, r._kargs)
+             for r in self.map.matchlist),
+            "\n")
 
 router = Router()
