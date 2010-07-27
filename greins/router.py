@@ -23,9 +23,9 @@ class Router(object):
                 logging.exception("Exception loading config for %s" % cf)
                 continue
             self.map.extend(
-                (Route(name, url,
+                (Route(None, url,
                        **dict(self.defaults.items() + kwargs.items()))
-                 for name, url, kwargs in routes), namespace)
+                 for kwargs in routes), namespace)
 
     def __call__(self, environ, start_response):
         match = self.map.routematch(environ=environ)
