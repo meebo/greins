@@ -25,9 +25,10 @@ class Router(object):
                 self.logger.exception("Exception loading config for %s" % cf)
                 continue
             self.map.extend(
-                (Route(None, url,
-                       **dict(self.defaults.items() + kwargs.items()))
-                 for url, kwargs in routes), namespace)
+                (Route(None, r.get('path', ''), _app=r.get('app'),
+                       **dict(self.defaults.items() +
+                              r.get('kwargs', {}).items()))
+                 for r in routes), namespace)
             self.logger.info("Loaded routes from %s" % namespace[1:])
         self.logger.debug("Greins booted\n%s" % self)
 
@@ -36,12 +37,23 @@ class Router(object):
         if not match:
             start_response('404 Not Found', {})
             return []
-        return match[0]['app'](environ, start_response)
+        return match[0]['_app'](environ, start_response)
 
     def __str__(self):
-        return "Path\t\tConfiguration\n" + string.join(
-            ("%s\t\t%s" % (r.routepath, r._kargs)
-             for r in self.map.matchlist),
-            "\n")
+        #Technique taken from Routes mapper class
+        table = [('Path', 'App', 'Options')] + \
+                [(r.routepath,
+                  "%s.%s" % (r._kargs['_app'].__module__,
+                             r._kargs['_app'].__name__),
+                  str([(k,v) for k,v in r._kargs.items() if k is not '_app']))
+                 for r in self.map.matchlist]
+
+        widths = [max(len(row[col]) for row in table)
+                 for col in range(len(table[0]))]
+
+        return '\n'.join(
+            ' '.join(row[col].ljust(widths[col])
+                     for col in range(len(widths)))
+            for row in table)
 
 router = Router()
