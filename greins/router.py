@@ -25,7 +25,7 @@ class Router(object):
             self.map.extend(
                 (Route(None, url,
                        **dict(self.defaults.items() + kwargs.items()))
-                 for kwargs in routes), namespace)
+                 for url, kwargs in routes), namespace)
 
     def __call__(self, environ, start_response):
         match = self.map.routematch(environ=environ)
