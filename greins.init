@@ -1,0 +1,130 @@
+#!/bin/sh
+#
+# greins This is the init script that tacks up the gunicorn
+#
+# chkconfig: - 72 28
+# description: Starts and stops the gunicorn daemon that handles \
+#	       routing to a bunch of hosted WSGI apps using greins.
+
+### BEGIN INIT INFO
+# Provides: greins
+# Required-Start: $local_fs $network
+# Required-Stop: $local_fs $network
+# Should-Start: $remote_fs
+# Should-Stop: $remote_fs
+# Default-Start: 
+# Default-Stop: 0 1 2 3 4 5 6
+# Short-Description: start and stop greins gunicorn tack
+# Description: Greins is routing middleware for gunicorn
+### END INIT INFO
+
+# Source function library.
+. /etc/rc.d/init.d/functions
+
+prog=gunicorn
+exec=/usr/bin/$prog
+basename=$(basename $0)
+
+# default values
+GREINS_BIND_ADDR=unix:/var/run/greins/$basename.sock
+GREINS_LOG_FILE=/var/log/greins/$basename.log
+GREINS_CONF_D=/etc/$basename/conf.d
+GREINS_OPTIONS=
+
+[ -e /etc/sysconfig/$basename ] && . /etc/sysconfig/$basename
+
+pidfile=/var/run/greins/$basename.pid
+lockfile=/var/lock/subsys/$basename
+
+start() {
+    [ -x $exec ] || exit 5
+    echo -n $"Starting $basename: "
+    rh_status_q && echo -n "already running" && warning && echo && exit 0
+    $exec -D \
+      -p $pidfile \
+      --log-file $GREINS_LOG_FILE \
+      -k egg:gunicorn#sync \
+      -b $GREINS_BIND_ADDR \
+      $GREINS_OPTIONS greins.router:router >/dev/null
+    retval=$?
+    echo
+    [ $retval -eq 0 ] && touch $lockfile
+    return $retval
+}
+
+stop() {
+    echo -n $"Stopping $basename: "
+    retval=0
+    if ! rh_status_q ; then
+        echo -n "already stopped" && warning
+    else
+        killproc -p $pidfile $prog -QUIT
+        retval=$?
+    fi
+    echo
+    if [ $retval -eq 0 ]; then
+        STOPTIMEOUT=60
+        while [ $STOPTIMEOUT -gt 0 ]; do
+            rh_status_q || break
+            usleep 100000
+            let STOPTIMEOUT=${STOPTIMEOUT}-1
+        done
+        if [ $STOPTIMEOUT -eq 0 ]; then
+            killproc -p $pidfile $prog
+            retval=$?
+            echo "Timeout error occurred trying to stop gracefully. Killing."
+            if [ $retval -eq 0 ]; then
+                rm -f $lockfile $pidfile
+            fi
+        else
+            rm -f $lockfile $pidfile
+        fi
+    fi
+    return $retval
+}
+
+restart() {
+    stop
+    start
+}
+
+reload() {
+    killproc -p $pidfile $prog -HUP
+}
+
+rh_status() {
+    # run checks to determine if the service is running or use generic status
+    status -p $pidfile $prog
+}
+
+rh_status_q() {
+    rh_status >/dev/null 2>&1
+}
+
+
+case "$1" in
+    start)
+        $1
+        ;;
+    stop)
+        $1
+        ;;
+    restart|force-reload)
+        restart
+        ;;
+    reload)
+        rh_status_q || exit 7
+        $1
+        ;;
+    status)
+        rh_status
+        ;;
+    condrestart|try-restart)
+        rh_status_q || exit 0
+        restart
+        ;;
+    *)
+        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
+        exit 2
+esac
+exit $?
