@@ -43,6 +43,7 @@ start() {
     $exec -D \
       -p $pidfile \
       --log-file $GREINS_LOG_FILE \
+      -u nobody -g nobody \
       -k egg:gunicorn#gevent \
       -b $GREINS_BIND_ADDR \
       $GREINS_OPTIONS greins.router:router >/dev/null
