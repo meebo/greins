@@ -1,6 +1,7 @@
 RELEASE = 1`rpm --eval %{?dist}`
 
 PY_EXTRA = --install-script greins.spec
+REQUIRES = python-routes >= 1.12, gunicorn >= 0.10, gevent >= 0.13.0
 default:
 	python setup.py build
 
@@ -8,7 +9,7 @@ install:
 	python setup.py install %(root)
 
 rpm:
-	python setup.py bdist_rpm --release="$(RELEASE)" --requires "python-routes >= 1.12, gunicorn >= 0.10" $(PY_EXTRA)
+	python setup.py bdist_rpm --release="$(RELEASE)" --requires "$(REQUIRES)" $(PY_EXTRA)
 
 clean:
 	rm -rf MANIFEST
