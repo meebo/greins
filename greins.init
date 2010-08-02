@@ -38,6 +38,9 @@ GREINS_OPTIONS=
 pidfile=/var/run/greins/$basename.pid
 lockfile=/var/lock/subsys/$basename
 
+# export variables needed inside gunicorn
+export GREINS_CONF_D
+
 start() {
     [ -x $exec ] || exit 5
     echo -n $"Starting $basename: "
@@ -46,7 +49,7 @@ start() {
       -p $pidfile \
       --log-file $GREINS_LOG_FILE \
       -u $GREINS_USER -g $GREINS_GROUP \
-      -k $GREINS_WORKER_CLASS \
+      -k egg:gunicorn#gevent \
       -b $GREINS_BIND_ADDR \
       $GREINS_OPTIONS greins.router:router >/dev/null
     retval=$?
