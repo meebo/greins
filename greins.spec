@@ -1,8 +1,6 @@
 #!/bin/sh
 python setup.py install --single-version-externally-managed --root=$RPM_BUILD_ROOT --record=INSTALLED_FILES
 
-ls
-pwd
 install -D -m 755 greins.init $RPM_BUILD_ROOT%{_initrddir}/greins
 mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/greins/conf.d
 mkdir -p $RPM_BUILD_ROOT%{_localstatedir}/log/greins
