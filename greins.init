@@ -29,6 +29,8 @@ basename=$(basename $0)
 GREINS_BIND_ADDR=unix:/var/run/greins/$basename.sock
 GREINS_LOG_FILE=/var/log/greins/$basename.log
 GREINS_CONF_D=/etc/$basename/conf.d
+GREINS_USER=nobody
+GREINS_GROUP=nobody
 GREINS_OPTIONS=
 
 [ -e /etc/sysconfig/$basename ] && . /etc/sysconfig/$basename
@@ -43,8 +45,8 @@ start() {
     $exec -D \
       -p $pidfile \
       --log-file $GREINS_LOG_FILE \
-      -u nobody -g nobody \
-      -k egg:gunicorn#gevent \
+      -u $GREINS_USER -g $GREINS_GROUP \
+      -k $GREINS_WORKER_CLASS \
       -b $GREINS_BIND_ADDR \
       $GREINS_OPTIONS greins.router:router >/dev/null
     retval=$?
