@@ -17,7 +17,7 @@ class Router(object):
         self.logger = logging.getLogger('gunicorn')
 
         for cf in glob(join(CONF_D, '*.py')):
-            namespace = '/' + splitext(basename(cf))[0]
+            cfname = splitext(basename(cf))[0]
             routes = []
             try:
                 execfile(cf, {}, {'routes': routes})
@@ -28,8 +28,8 @@ class Router(object):
                 (Route(None, r.get('path', ''), _app=r.get('app'),
                        **dict(self.defaults.items() +
                               r.get('kwargs', {}).items()))
-                 for r in routes), namespace)
-            self.logger.info("Loaded routes from %s" % namespace[1:])
+                 for r in routes))
+            self.logger.info("Loaded routes from %s" % cfname)
         self.logger.debug("Greins booted\n%s" % self)
 
     def __call__(self, environ, start_response):
