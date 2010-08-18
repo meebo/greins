@@ -18,17 +18,17 @@ class Router(DispatcherMiddleware):
         #Generate all mount tuples from a config file
         def load_mounts(mount_acc, cf):
             cfname = splitext(basename(cf))[0]
-            l = {'mounts': {}}
+            cf_env = {'mounts': {}}
             try:
-                execfile(cf, {}, l)
+                execfile(cf, cf_env)
+                for r, a in cf_env['mounts'].iteritems():
+                    if r in mount_acc:
+                        self.logger.warning("Duplicate route for %s" % r)
+                    else:
+                        mount_acc[r] = a
             except:
                 self.logger.exception("Exception loading config for %s" % cf)
                 return
-            for r, a in l['mounts'].iteritems():
-                if r in mount_acc:
-                    self.logger.warning("Duplicate route for %s" % r)
-                else:
-                    mount_acc[r] = a
             self.logger.info("Loaded routes from %s" % cfname)
             return mount_acc
 
