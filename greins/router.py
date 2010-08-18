@@ -1,3 +1,4 @@
+import itertools
 import logging
 import string
 
@@ -5,48 +6,46 @@ from glob import glob
 from os import getenv
 from os.path import basename, join, splitext
 
-from routes import Mapper
-from routes.route import Route
+from werkzeug import Response, DispatcherMiddleware
+from werkzeug.exceptions import NotFound
 
 CONF_D = getenv('GREINS_CONF_D') or "/etc/greins/conf.d"
 
-class Router(object):
-    def __init__(self):
-        self.map = Mapper()
-        self.defaults = {}
+class Router(DispatcherMiddleware):
+    def __init__(self, mounts={}):
         self.logger = logging.getLogger('gunicorn')
 
-        for cf in glob(join(CONF_D, '*.py')):
+        #Generate all mount tuples from a config file
+        def load_mounts(mount_acc, cf):
             cfname = splitext(basename(cf))[0]
-            routes = []
+            l = {'mounts': {}}
             try:
-                execfile(cf, {}, {'routes': routes})
+                execfile(cf, {}, l)
             except:
                 self.logger.exception("Exception loading config for %s" % cf)
-                continue
-            self.map.extend(
-                (Route(None, r.get('path', ''), _app=r.get('app'),
-                       **dict(self.defaults.items() +
-                              r.get('kwargs', {}).items()))
-                 for r in routes))
+                return
+            for r, a in l['mounts'].iteritems():
+                if r in mount_acc:
+                    self.logger.warning("Duplicate route for %s" % r)
+                else:
+                    mount_acc[r] = a
             self.logger.info("Loaded routes from %s" % cfname)
-        self.logger.debug("Greins booted\n%s" % self)
+            return mount_acc
 
-    def __call__(self, environ, start_response):
-        match = self.map.routematch(environ=environ)
-        if not match:
-            start_response('404 Not Found', {})
-            return []
-        return match[0]['_app'](environ, start_response)
+        #Chain together all the mounts from all configs
+        mounts = reduce(load_mounts,
+                        glob(join(CONF_D, '*.py')),
+                        mounts)
+        
+        #Initialize the base class
+        DispatcherMiddleware.__init__(self, self.not_found, mounts=mounts)
+        self.logger.debug("Greins booted\n%s" % self)
 
     def __str__(self):
         #Technique taken from Routes mapper class
-        table = [('Path', 'App', 'Options')] + \
-                [(r.routepath,
-                  "%s.%s" % (r._kargs['_app'].__module__,
-                             r._kargs['_app'].__name__),
-                  str([(k,v) for k,v in r._kargs.items() if k is not '_app']))
-                 for r in self.map.matchlist]
+        table = [('Path', 'App')] + \
+                [(path, "%s.%s" % (app.__module__, app.__name__))
+                 for path, app in self.mounts.items()]
 
         widths = [max(len(row[col]) for row in table)
                  for col in range(len(table[0]))]
@@ -55,5 +54,8 @@ class Router(object):
             ' '.join(row[col].ljust(widths[col])
                      for col in range(len(widths)))
             for row in table)
+
+    def not_found(self, environ, start_response):
+        return Response(status=404)(environ, start_response) 
 
 router = Router()
