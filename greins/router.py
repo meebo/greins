@@ -29,6 +29,7 @@ class Router(DispatcherMiddleware):
                             def app_with_env(env, s_r):
                                 eval_env = {'app': app, 'env': env, 's_r': s_r}
                                 return eval('app(env, s_r)', cf_env, eval_env)
+                            app_with_env.__name__ = app.__name__
                             return app_with_env
                         mount_acc[r] = wrap(a)
             except:
