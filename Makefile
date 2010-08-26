@@ -1,4 +1,4 @@
-RELEASE = 2`rpm --eval %{?dist}`
+RELEASE = 3`rpm --eval %{?dist}`
 
 PY_EXTRA = --install-script greins.spec
 REQUIRES = python-routes >= 1.12, gunicorn >= 0.11, gevent >= 0.13.0, python-werkzeug >= 0.6.2
