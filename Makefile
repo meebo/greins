@@ -1,8 +1,8 @@
-RELEASE = 1`rpm --eval %{?dist}`
+RELEASE = 2`rpm --eval %{?dist}`
 
 PY_EXTRA = --install-script greins.spec
-REQUIRES = python-routes >= 1.12, gunicorn >= 0.10, gevent >= 0.13.0
-CONFLICTS = python-adserver <= 2.1.8
+REQUIRES = python-routes >= 1.12, gunicorn >= 0.11, gevent >= 0.13.0, python-werkzeug >= 0.6.2
+CONFLICTS = dradserver-greins <= 2.1
 default:
 	python setup.py build
 
