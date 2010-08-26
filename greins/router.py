@@ -25,10 +25,12 @@ class Router(DispatcherMiddleware):
                     if r in mount_acc:
                         self.logger.warning("Duplicate route for %s" % r)
                     else:
-                        def app_with_env(env, s_r):
-                            eval_env = {'app': a, 'env': env, 's_r': s_r}
-                            return eval('app(env, s_r)', cf_env, eval_env)
-                        mount_acc[r] = app_with_env
+                        def wrap(app):
+                            def app_with_env(env, s_r):
+                                eval_env = {'app': app, 'env': env, 's_r': s_r}
+                                return eval('app(env, s_r)', cf_env, eval_env)
+                            return app_with_env
+                        mount_acc[r] = wrap(a)
             except:
                 self.logger.exception("Exception loading config for %s" % cf)
                 return
