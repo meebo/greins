@@ -61,6 +61,10 @@ class Router(DispatcherMiddleware):
                      for col in range(len(widths)))
             for row in table)
 
+    def __call__(self, environ, start_response):
+        response = DispatcherMiddleware.__call__(self, environ, start_response)
+        return response
+
     def not_found(self, environ, start_response):
         return Response(status=404)(environ, start_response) 
 
