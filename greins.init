@@ -2,7 +2,7 @@
 #
 # greins This is the init script that tacks up the gunicorn
 #
-# chkconfig: - 72 28
+# chkconfig: 2345 72 28
 # description: Starts and stops the gunicorn daemon that handles \
 #	       routing to a bunch of hosted WSGI apps using greins.
 
@@ -12,8 +12,8 @@
 # Required-Stop: $local_fs $network
 # Should-Start: $remote_fs
 # Should-Stop: $remote_fs
-# Default-Start: 
-# Default-Stop: 0 1 2 3 4 5 6
+# Default-Start: 2 3 4 5
+# Default-Stop: 0 1 6
 # Short-Description: start and stop greins gunicorn tack
 # Description: Greins is routing middleware for gunicorn
 ### END INIT INFO
