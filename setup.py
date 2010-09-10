@@ -25,4 +25,7 @@ setup(
     include_package_data = True,
 
     install_requires = ['setuptools'],
+	options = {'bdist_rpm':{	'post_install': 'post_install',
+		   						'pre_uninstall': 'pre_uninstall'}}
+
 )
