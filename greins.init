@@ -23,15 +23,30 @@
 
 prog=gunicorn
 exec=/usr/bin/$prog
-basename=$(basename $0)
 
 # default values
-GREINS_BIND_ADDR=unix:/var/run/greins/$basename.sock
-GREINS_LOG_FILE=/var/log/greins/$basename.log
-GREINS_CONF_D=/etc/$basename/conf.d
+GREINS_BIND_ADDR=unix:/var/run/greins/greins.sock
+GREINS_LOG_FILE=/var/log/greins/greins.log
+GREINS_CONF_D=/etc/greins/conf.d
 GREINS_USER=nobody
 GREINS_GROUP=nobody
 GREINS_OPTIONS=
+
+# if this script was run from a symlink, follow links until we discover a
+# corresponding configuration file or get to the end of the link chain
+fullname=$0
+basename=$(basename $fullname)
+while [ ! -e /etc/sysconfig/$basename -a -L $fullname ]
+do
+    link=$(readlink $fullname)
+    if [ $(expr $link : "\.") -gt 0 ]
+    then
+        fullname="$(dirname $fullname)/$link"
+    else
+        fullname="$link"
+    fi
+    basename=$(basename $fullname)
+done
 
 [ -e /etc/sysconfig/$basename ] && . /etc/sysconfig/$basename
 
