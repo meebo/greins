@@ -87,7 +87,7 @@ stop() {
         STOPTIMEOUT=60
         while [ $STOPTIMEOUT -gt 0 ]; do
             rh_status_q || break
-            usleep 100000
+            sleep 1
             let STOPTIMEOUT=${STOPTIMEOUT}-1
         done
         if [ $STOPTIMEOUT -eq 0 ]; then
