@@ -20,6 +20,7 @@
 
 # Source function library.
 . /etc/rc.d/init.d/functions
+. /lib/lsb/init-functions
 
 prog=gunicorn
 exec=/usr/bin/$prog
@@ -59,7 +60,7 @@ export GREINS_CONF_D
 start() {
     [ -x $exec ] || exit 5
     echo -n $"Starting $basename: "
-    rh_status_q && echo -n "already running" && warning && echo && exit 0
+    rh_status_q && log_warning_msg $"already running" && exit 0
     $exec -D \
       -p $pidfile \
       --log-file $GREINS_LOG_FILE \
@@ -68,8 +69,9 @@ start() {
       -b $GREINS_BIND_ADDR \
       $GREINS_OPTIONS greins.router:router >/dev/null
     retval=$?
-    echo
-    [ $retval -eq 0 ] && touch $lockfile
+    [ $retval -eq 0 ] && touch $lockfile && \
+        log_success_msg $"done" || \
+        log_failure_msg $"failed"
     return $retval
 }
 
@@ -77,15 +79,14 @@ stop() {
     echo -n $"Stopping $basename: "
     retval=0
     if ! rh_status_q ; then
-        echo -n "already stopped" && warning
+	log_warning_msg $"already stopped" && exit 0
     else
         killproc -p $pidfile $prog -QUIT
         retval=$?
     fi
-    echo
     if [ $retval -eq 0 ]; then
         STOPTIMEOUT=60
-        while [ $STOPTIMEOUT -gt 0 ]; do
+        while [ $STOPTIMEOUT -gt 1 ]; do
             rh_status_q || break
             sleep 1
             let STOPTIMEOUT=${STOPTIMEOUT}-1
@@ -93,11 +94,15 @@ stop() {
         if [ $STOPTIMEOUT -eq 0 ]; then
             killproc -p $pidfile $prog
             retval=$?
-            echo "Timeout error occurred trying to stop gracefully. Killing."
+            log_warning_msg $"timeout error occurred trying to stop gracefully. Killing."
             if [ $retval -eq 0 ]; then
                 rm -f $lockfile $pidfile
+                log_success_msg $"killed"
+            else
+                log_failure_msg $"failed"
             fi
         else
+            log_success_msg $"stopped"
             rm -f $lockfile $pidfile
         fi
     fi
@@ -145,7 +150,7 @@ case "$1" in
         restart
         ;;
     *)
-        echo $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
+        log_failure_msg $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
         exit 2
 esac
 exit $?
