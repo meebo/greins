@@ -18,18 +18,45 @@ class Router(DispatcherMiddleware):
     def __init__(self, mounts={}):
         self.logger = logging.getLogger('gunicorn')
 
-        #Generate all mount tuples from a config file
+        """
+        Generate all mount tuples from a single config file.
+        These will contain app handlers bound inside their configured
+        environments along with all the collectd magic dust.
+        """
         def load_mounts(mount_acc, cf):
             cfname = splitext(basename(cf))[0]
-            cf_env = {'mounts': {}}
             try:
+                """
+                Exec the config file, seeding the local environment with
+                an empty mount set. We need to keep this environment
+                around so that we can run the app handlers inside it:
+                the  handler has to be evaluated in an environment where it
+                can reference its imports.
+                """
+                cf_env = {'mounts': {}}
                 execfile(cf, cf_env)
+
                 for r, a in cf_env['mounts'].iteritems():
                     if r in mount_acc:
                         self.logger.warning("Duplicate route for %s" % r)
                     else:
+                        """
+                        Since for loops don't create a new scope we need to
+                        create a wrapper function to capture the scope where
+                        we have a reference to the app handler.
+                        """
                         def wrap(app):
+                            """
+                            Create a proxy handler function.
+                            Here we can do some lifting like injecting the
+                            environment of the config file and logging some
+                            metrics to collectd.
+                            """
                             def app_with_env(env, start_response):
+                                """
+                                start_response() proxy that captures the
+                                status code to collectd
+                                """
                                 def s_r(status, headers):
                                     code = status.split()[0]
                                     queue_data('greins',
@@ -38,17 +65,27 @@ class Router(DispatcherMiddleware):
                                                1,
                                                'sum')
                                     start_response(status, headers)
+
+                                #Bind all relevant symbols for the handler eval
                                 eval_env = {'app': app, 'env': env, 's_r': s_r}
+
+                                #Grab the start time for response time logging
                                 start = time.time()
+
                                 result = eval('app(env, s_r)', cf_env, eval_env)
+
+                                #Log the response time
                                 resp_ms = (time.time() - start)*1000
                                 queue_data('greins',
                                            app.__name__,
                                            'response_ms',
                                            resp_ms)
+
                                 return result
                             app_with_env.__name__ = app.__name__
                             return app_with_env
+
+                        #wrap this app and put it in the mount accumulator
                         mount_acc[r] = wrap(a)
             except:
                 self.logger.exception("Exception loading config for %s" % cf)
@@ -56,7 +93,7 @@ class Router(DispatcherMiddleware):
             self.logger.info("Loaded routes from %s" % cfname)
             return mount_acc
 
-        #Chain together all the mounts from all configs
+        #Fold over all the config files and combine the mounts they load
         mounts = reduce(load_mounts,
                         glob(join(CONF_D, '*.py')),
                         mounts)
