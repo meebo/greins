@@ -29,9 +29,17 @@ class Router(DispatcherMiddleware):
                         self.logger.warning("Duplicate route for %s" % r)
                     else:
                         def wrap(app):
-                            def app_with_env(env, s_r):
-                                start = time.time()
+                            def app_with_env(env, start_response):
+                                def s_r(status, headers):
+                                    code = status.split()[0]
+                                    queue_data('greins',
+                                               app.__name__,
+                                               'status%s' % code,
+                                               1,
+                                               'sum')
+                                    start_response(status, headers)
                                 eval_env = {'app': app, 'env': env, 's_r': s_r}
+                                start = time.time()
                                 result = eval('app(env, s_r)', cf_env, eval_env)
                                 resp_ms = (time.time() - start)*1000
                                 queue_data('greins',
