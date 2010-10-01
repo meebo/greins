@@ -1,6 +1,7 @@
 import itertools
 import logging
 import string
+import time
 
 from glob import glob
 from os import getenv
@@ -8,6 +9,8 @@ from os.path import basename, join, splitext
 
 from werkzeug import Response, DispatcherMiddleware
 from werkzeug.exceptions import NotFound
+
+from collectd_aggregator_client import queue_data
 
 CONF_D = getenv('GREINS_CONF_D') or "/etc/greins/conf.d"
 
@@ -27,8 +30,15 @@ class Router(DispatcherMiddleware):
                     else:
                         def wrap(app):
                             def app_with_env(env, s_r):
+                                start = time.time()
                                 eval_env = {'app': app, 'env': env, 's_r': s_r}
-                                return eval('app(env, s_r)', cf_env, eval_env)
+                                result = eval('app(env, s_r)', cf_env, eval_env)
+                                resp_ms = (time.time() - start)*1000
+                                queue_data('greins',
+                                           app.__name__,
+                                           'response_ms',
+                                           resp_ms)
+                                return result
                             app_with_env.__name__ = app.__name__
                             return app_with_env
                         mount_acc[r] = wrap(a)

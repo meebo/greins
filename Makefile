@@ -1,7 +1,7 @@
-RELEASE = 2`rpm --eval %{?dist}`
+RELEASE = 0.rleeds1`rpm --eval %{?dist}`
 
 PY_EXTRA = --install-script greins.spec
-REQUIRES = gunicorn >= 0.11, gevent >= 0.13.0, python-werkzeug >= 0.6.2
+REQUIRES = gunicorn >= 0.11, gevent >= 0.13.0, python-werkzeug >= 0.6.2, python-aggregator-client
 CONFLICTS = dradserver-greins <= 2.1
 default:
 	python setup.py build
