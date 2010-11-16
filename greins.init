@@ -164,6 +164,24 @@ reload() {
     killproc -p $pidfile $prog -HUP
 }
 
+rollback() {
+    [ -x $exec ] || exit 5
+    echo -n "Rolling back to old master: "
+    status -p $pidfile.oldbin $prog >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        log_failure_msg $"none found"
+        exit 1
+    fi
+
+    if [ -f $pidfile ]; then
+        mv $pidfile $pidfile.tmp
+    fi
+
+    killproc -p $pidfile.oldbin $prog -HUP
+    killproc -p $pidfile.tmp $prog
+    log_success_msg $"done"
+}
+
 rh_status() {
     # run checks to determine if the service is running or use generic status
     status -p $pidfile $prog
@@ -186,6 +204,9 @@ case "$1" in
         ;;
     reload)
         rh_status_q || exit 7
+        $1
+        ;;
+    rollback)
         $1
         ;;
     status)
