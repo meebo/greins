@@ -79,7 +79,7 @@ stop() {
     echo -n $"Stopping $basename: "
     retval=0
     if ! rh_status_q ; then
-	log_warning_msg $"already stopped" && exit 0
+        log_warning_msg $"already stopped" && exit 0
     else
         killproc -p $pidfile $prog -QUIT
         retval=$?
@@ -110,8 +110,54 @@ stop() {
 }
 
 restart() {
-    stop
-    start
+    [ -x $exec ] || exit 5
+    status -p $pidfile.oldbin $prog >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo -n $"Killing off old, defunct master: "
+        killproc -p $pidfile.oldbin $prog
+        log_success_msg $"killed"
+    fi
+    rm -f $pidfile.oldbin
+
+    echo -n "Gracefully restarting $basename: "
+    rh_status_q
+    if [ $? -ne 0 ]; then
+        log_warning_msg $"$basename not running"
+        start
+        return $?
+    else
+        log_success_msg $"found a running instance"
+    fi
+
+    echo -n $"Starting new master: "
+    killproc -p $pidfile $prog -USR2
+    TIMEOUT=60
+    while [ $TIMEOUT -gt 1 ]; do
+        status -p $pidfile.oldbin $prog >/dev/null 2>&1 && rh_status_q && break
+        sleep 1
+        let TIMEOUT=${TIMEOUT}-1
+    done
+    if [ $TIMEOUT -eq 0 ]; then
+        log_failure_msg $"failed"
+        return 1
+    else
+        log_success_msg $"started"
+    fi
+
+    echo -n $"Shutting down old workers: "
+    killproc -p $pidfile.oldbin $prog -WINCH
+    TIMEOUT=60
+    while [ $TIMEOUT -gt 1 ]; do
+        ps axo ppid | grep -q -f $pidfile.oldbin - && break
+        sleep 1
+        let TIMEOUT=${TIMEOUT}-1
+    done
+    if [ $TIMEOUT -eq 0 ]; then
+        log_warning_msg $"failed"
+    else
+        log_success_msg $"killed"
+    fi
+    return 1
 }
 
 reload() {
@@ -136,7 +182,7 @@ case "$1" in
         $1
         ;;
     restart|force-reload)
-        restart
+        $1
         ;;
     reload)
         rh_status_q || exit 7
