@@ -21,7 +21,9 @@ class GreinsApplication(WSGIApplication):
         if not os.path.isdir(args[0]):
             parser.error("APP_DIR must refer to an existing directory.")
 
+        self.cfg.set("default_proc_name", parser.get_prog_name())
         self.app_dir = os.path.abspath(args[0])
+
         self._mounts = {}
         self._hooks = {}
 
