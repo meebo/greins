@@ -22,7 +22,7 @@
 . /etc/rc.d/init.d/functions
 . /lib/lsb/init-functions
 
-prog=gunicorn
+prog=greins
 exec=/usr/bin/$prog
 
 # default values
