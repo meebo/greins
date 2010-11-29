@@ -62,10 +62,9 @@ start() {
       -p $pidfile \
       --log-file $GREINS_LOG_FILE \
       -u $GREINS_USER -g $GREINS_GROUP \
-      -k egg:gunicorn#gevent \
       -b $GREINS_BIND_ADDR \
-      -d $GREINS_CONF_D \
-      $GREINS_OPTIONS >/dev/null
+      $GREINS_OPTIONS \
+      $GREINS_CONF_D >/dev/null
     retval=$?
     [ $retval -eq 0 ] && touch $lockfile && \
         log_success_msg $"done" || \

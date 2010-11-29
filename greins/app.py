@@ -1,42 +1,27 @@
 import glob
 import inspect
 import os.path
-import string
-import textwrap
 
 from gunicorn.app.wsgiapp import WSGIApplication
-from gunicorn.config import Setting, make_settings, validate_string
+from gunicorn.config import make_settings
 
 from greins.router import Router
 
-class ConfigDir(Setting):
-    name = "config_dir"
-    section = "Config File"
-    cli = ["-d", "--dir"]
-    meta = "DIR"
-    validator = validate_string
-    default = "/etc/greins/conf.d"
-    desc = """\
-        The path to a Greins config directory.
-
-        The directory will be scanned for .py files. Each file is evaluated for
-        application-specific options. In addition to the Server Hooks allowed in
-        a standard Gunicorn configuration file, each file may define a dict-like
-        object called 'mounts' that maps uri paths to wsgi handlers.
-        """
+hook_proxy_template = """\
+def proxy{spec}:
+    for handler in greins._hooks[name]['handlers']:
+        handler{spec}
+"""
 
 class GreinsApplication(WSGIApplication):
 
-    __proxy_template = string.Template(textwrap.dedent("""\
-    def proxy${spec}:
-        for handler in greins._hooks[name]['handlers']:
-            handler${spec}
-    """))
-
     def init(self, parser, opts, args):
-        if not (opts.config_dir and os.path.isdir(opts.config_dir)):
-            parser.error("config_dir must refer to an existing directory")
+        if len(args) != 1:
+            parser.error("No configuration directory specified.")
+        if not os.path.isdir(args[0]):
+            parser.error("APP_DIR must refer to an existing directory.")
 
+        self.app_dir = os.path.abspath(args[0])
         self._mounts = {}
         self._hooks = {}
 
@@ -65,11 +50,11 @@ class GreinsApplication(WSGIApplication):
                     "name": name
                 }
                 # Create the proxy
-                exec self.__proxy_template.substitute(spec=spec) in proxy_env
+                exec hook_proxy_template.format(spec=spec) in proxy_env
                 self.cfg.set(name, proxy_env['proxy'])
 
     def load(self):
-        for cf in glob.glob(os.path.join(self.cfg.config_dir, '*.py')):
+        for cf in glob.glob(os.path.join(self.app_dir, '*.py')):
             cf_name = os.path.splitext(os.path.basename(cf))[0]
             cfg = {
                 "__builtins__": __builtins__,
@@ -129,4 +114,4 @@ def run():
     a greins configuration directory.
     """
     from greins.app import GreinsApplication
-    GreinsApplication("%prog [OPTIONS]").run()
+    GreinsApplication("%prog [OPTIONS] APP_DIR").run()

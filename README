@@ -1,2 +1,0 @@
-Greins is a WSGI deployment and hosting tool which uses gunicorn to provide
-pre-fork, evented WSGI workers for any of number of configured applications.
