@@ -1,12 +1,10 @@
-from werkzeug import Response, DispatcherMiddleware
-from werkzeug.exceptions import NotFound
-
-class Router(DispatcherMiddleware):
+# Based on werkzeug.DispatcherMiddleware
+class Router(object):
     def __init__(self, mounts={}):
-        DispatcherMiddleware.__init__(self, self.not_found, mounts=mounts)
+        self.mounts = mounts
 
     def __str__(self):
-        #Technique taken from Routes mapper class
+        # Technique taken from Routes mapper class
         table = [('Path', 'App')] + \
                 [(path, "%s.%s" % (app.__module__, app.__name__))
                  for path, app in self.mounts.items()]
@@ -20,9 +18,15 @@ class Router(DispatcherMiddleware):
             for row in table)
 
     def __call__(self, environ, start_response):
-        response = DispatcherMiddleware.__call__(self, environ, start_response)
-        return response
-
-    def not_found(self, environ, start_response):
-        return Response(status=404)(environ, start_response) 
-
+        script = environ.get('PATH_INFO', '')
+        path_info = ''
+        while '/' in script:
+            if script in self.mounts:
+                environ['SCRIPT_NAME'] = script
+                environ['PATH_INFO'] = path_info
+                return self.mounts[script](environ, start_response)
+            items = script.split('/')
+            script = '/'.join(items[:-1])
+            path_info = '/%s%s' % (items[-1], path_info)
+        start_response(404, [])
+        return "Not Found."
