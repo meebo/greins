@@ -10,7 +10,7 @@ setup(
     name = 'greins',
     version = __version__,
 
-    description = 'Greins is routing middleware for gunicorn',
+    description = 'Greins provides routing and management for Gunicorn.',
     long_description = file(
         os.path.join(
             os.path.dirname(__file__),
@@ -19,6 +19,20 @@ setup(
     ).read(),
     author = 'Randall Leeds',
     author_email = 'randall@meebo-inc.com',
+    url = 'http://github.com/meebo/greins',
+    license = 'MIT License',
+
+    classifiers = [
+        'Development Status :: 4 - Beta',
+        'Environment :: Other Environment',
+        'Intended Audience :: Developers',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: POSIX',
+        'Programming Language :: Python',
+        'Topic :: Internet',
+        'Topic :: Utilities',
+        'Topic :: Software Development :: Libraries :: Python Modules',
+    ],
 
     zip_safe = False,
     packages = find_packages(exclude=['test']),
