@@ -8,9 +8,9 @@ from gunicorn.config import make_settings
 from greins.router import Router
 
 hook_proxy_template = """\
-def proxy{spec}:
+def proxy%(spec)s:
     for handler in greins._hooks[name]['handlers']:
-        handler{spec}
+        handler%(spec)s
 """
 
 class GreinsApplication(WSGIApplication):
@@ -52,7 +52,7 @@ class GreinsApplication(WSGIApplication):
                     "name": name
                 }
                 # Create the proxy
-                exec hook_proxy_template.format(spec=spec) in proxy_env
+                exec hook_proxy_template % {'spec': spec} in proxy_env
                 self.cfg.set(name, proxy_env['proxy'])
 
     def load(self):
