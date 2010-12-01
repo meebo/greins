@@ -74,6 +74,7 @@ start() {
 
 stop() {
     echo -n $"Stopping $basename: "
+    maybe_cleanup_old_master
     retval=0
     if ! rh_status_q ; then
         log_warning_msg $"already stopped" && exit 0
@@ -108,13 +109,6 @@ stop() {
 
 restart() {
     [ -x $exec ] || exit 5
-    status -p $pidfile.oldbin $prog >/dev/null 2>&1
-    if [ $? -eq 0 ]; then
-        echo -n $"Killing off old, defunct master: "
-        killproc -p $pidfile.oldbin $prog
-        log_success_msg $"killed"
-    fi
-    rm -f $pidfile.oldbin
 
     echo -n "Gracefully restarting $basename: "
     rh_status_q
@@ -151,14 +145,24 @@ restart() {
     done
     if [ $TIMEOUT -eq 0 ]; then
         log_warning_msg $"failed"
-    else
-        log_success_msg $"killed"
+        return 1
     fi
-    return 1
+    log_success_msg $"killed"
+    return 0
 }
 
 reload() {
     killproc -p $pidfile $prog -HUP
+}
+
+maybe_cleanup_old_master() {
+    status -p $pidfile.oldbin $prog >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo -n $"Killing off old, defunct master: "
+        killproc -p $pidfile.oldbin $prog
+        log_success_msg $"killed"
+    fi
+    rm -f $pidfile.oldbin
 }
 
 rollback() {
