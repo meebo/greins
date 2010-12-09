@@ -3,8 +3,8 @@
 # greins This is the init script that tacks up the gunicorn
 #
 # chkconfig: 2345 72 28
-# description: Starts and stops the gunicorn daemon that handles \
-#	       routing to a bunch of hosted WSGI apps using greins.
+# description: Starts and stops a Gunicorn application daemon that \
+#	       routes to WSGI apps installed on the filesystem.
 
 ### BEGIN INIT INFO
 # Provides: greins
@@ -14,16 +14,23 @@
 # Should-Stop: $remote_fs
 # Default-Start: 2 3 4 5
 # Default-Stop: 0 1 6
-# Short-Description: start and stop greins gunicorn tack
-# Description: Greins is routing middleware for gunicorn
+# Short-Description: manages Gunicorn tack
+# Description: Driving Greins for Gunicorn
 ### END INIT INFO
 
 # Source function library.
-. /etc/rc.d/init.d/functions
 . /lib/lsb/init-functions
 
 prog=greins
 exec=/usr/bin/$prog
+[ -x $exec ] || exit 5
+
+if [ -d "/etc/sysconfig" ];
+then
+    sysconfig="/etc/sysconfig"
+else
+    sysconfig="/etc/default"
+fi
 
 # default values
 GREINS_BIND_ADDR=unix:/var/run/greins/greins.sock
@@ -37,7 +44,7 @@ GREINS_OPTIONS=
 # corresponding configuration file or get to the end of the link chain
 fullname=$0
 basename=$(basename $fullname)
-while [ ! -e /etc/sysconfig/$basename -a -L $fullname ]
+while [ ! -e /etc/$sysconfig/$basename -a -L $fullname ]
 do
     link=$(readlink $fullname)
     if [ $(expr $link : "\.") -gt 0 ]
@@ -49,15 +56,20 @@ do
     basename=$(basename $fullname)
 done
 
-[ -e /etc/sysconfig/$basename ] && . /etc/sysconfig/$basename
+[ -e $sysconfig/$basename ] && . $sysconfig/$basename
 
 pidfile=/var/run/greins/$basename.pid
 lockfile=/var/lock/subsys/$basename
 
+log_daemon_msg () {
+    # Some distros may replace this when we source LSB functions
+    echo $@
+}
+
 start() {
     [ -x $exec ] || exit 5
-    echo -n $"Starting $basename: "
-    rh_status_q && log_warning_msg $"already running" && exit 0
+    log_daemon_msg "Starting $basename: "
+    status_q && log_warning_msg "already running" && exit 0
     $exec -D \
       -p $pidfile \
       --log-file $GREINS_LOG_FILE \
@@ -66,18 +78,18 @@ start() {
       $GREINS_OPTIONS \
       $GREINS_CONF_D >/dev/null
     retval=$?
-    [ $retval -eq 0 ] && touch $lockfile && \
-        log_success_msg $"done" || \
-        log_failure_msg $"failed"
+    [ $retval -eq 0 ] && rh_lock && \
+        log_success_msg "done" || \
+        log_failure_msg "failed"
     return $retval
 }
 
 stop() {
-    echo -n $"Stopping $basename: "
+    log_daemon_msg "Stopping $basename: "
     maybe_cleanup_old_master
     retval=0
-    if ! rh_status_q ; then
-        log_warning_msg $"already stopped" && exit 0
+    if ! status_q ; then
+        log_warning_msg "already stopped" && exit 0
     else
         killproc -p $pidfile $prog -QUIT
         retval=$?
@@ -85,54 +97,44 @@ stop() {
     if [ $retval -eq 0 ]; then
         STOPTIMEOUT=60
         while [ $STOPTIMEOUT -gt 1 ]; do
-            rh_status_q || break
+            status_q || break
             sleep 1
             let STOPTIMEOUT=${STOPTIMEOUT}-1
         done
         if [ $STOPTIMEOUT -eq 0 ]; then
             killproc -p $pidfile $prog
             retval=$?
-            log_warning_msg $"timeout error occurred trying to stop gracefully. Killing."
+            log_warning_msg "timeout error occurred trying to stop gracefully. Killing."
             if [ $retval -eq 0 ]; then
-                rm -f $lockfile $pidfile
-                log_success_msg $"killed"
+                rh_unlock
+                rm -rf $pidfile
+                log_success_msg "killed"
             else
-                log_failure_msg $"failed"
+                log_failure_msg "failed"
             fi
         else
-            log_success_msg $"stopped"
-            rm -f $lockfile $pidfile
+            rh_unlock
+            rm -rf $pidfile
+            log_success_msg "stopped"
         fi
     fi
     return $retval
 }
 
-restart() {
-    [ -x $exec ] || exit 5
-
-    echo -n "Gracefully restarting $basename: "
-    rh_status_q
-    if [ $? -ne 0 ]; then
-        log_warning_msg $"$basename not running"
-        start
-        return $?
-    else
-        log_success_msg $"found a running instance"
-    fi
-
-    echo -n $"Starting new master: "
+upgrade() {
+    log_daemon_msg "Starting new master: "
     killproc -p $pidfile $prog -USR2
     TIMEOUT=60
     while [ $TIMEOUT -gt 1 ]; do
-        status -p $pidfile.oldbin $prog >/dev/null 2>&1 && rh_status_q && break
+        status -p $pidfile.oldbin $prog >/dev/null 2>&1 && status_q && break
         sleep 1
         let TIMEOUT=${TIMEOUT}-1
     done
     if [ $TIMEOUT -eq 0 ]; then
-        log_failure_msg $"failed"
+        log_failure_msg "failed"
         return 1
     else
-        log_success_msg $"started"
+        log_success_msg "started"
     fi
 
     echo -n $"Shutting down old workers: "
@@ -144,15 +146,29 @@ restart() {
         let TIMEOUT=${TIMEOUT}-1
     done
     if [ $TIMEOUT -eq 0 ]; then
-        log_warning_msg $"failed"
+        log_warning_msg "failed"
         return 1
     fi
-    log_success_msg $"killed"
+    log_success_msg "killed"
     return 0
 }
 
-reload() {
-    killproc -p $pidfile $prog -HUP
+rollback() {
+    log_daemon_msg "Rolling back to old master: "
+    status -p $pidfile.oldbin $prog >/dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        log_failure_msg "none found"
+        exit 1
+    fi
+
+    if [ -f $pidfile ]; then
+        mv $pidfile $pidfile.tmp
+    fi
+
+    killproc -p $pidfile.oldbin $prog -HUP
+    killproc -p $pidfile.tmp $prog
+    log_success_msg "done"
+    status_q
 }
 
 maybe_cleanup_old_master() {
@@ -165,31 +181,23 @@ maybe_cleanup_old_master() {
     rm -f $pidfile.oldbin
 }
 
-rollback() {
-    [ -x $exec ] || exit 5
-    echo -n "Rolling back to old master: "
-    status -p $pidfile.oldbin $prog >/dev/null 2>&1
-    if [ $? -ne 0 ]; then
-        log_failure_msg $"none found"
-        exit 1
-    fi
-
-    if [ -f $pidfile ]; then
-        mv $pidfile $pidfile.tmp
-    fi
-
-    killproc -p $pidfile.oldbin $prog -HUP
-    killproc -p $pidfile.tmp $prog
-    log_success_msg $"done"
+status() {
+    pidofproc $@
 }
 
-rh_status() {
-    # run checks to determine if the service is running or use generic status
+status_q() {
     status -p $pidfile $prog
+    status >/dev/null 2>&1
 }
 
-rh_status_q() {
-    rh_status >/dev/null 2>&1
+rh_lock() {
+    [ -d $(basename $lockfile) ] || touch $lockfile
+    return
+}
+
+rh_unlock() {
+    [ -d $(basename $lockfile) ] || rm -rf $lockfile
+    return
 }
 
 
@@ -200,25 +208,29 @@ case "$1" in
     stop)
         $1
         ;;
-    restart|force-reload)
-        $1
+    restart)
+        stop
+        start
         ;;
     reload)
-        rh_status_q || exit 7
+    	killproc -p $pidfile $prog -HUP
+        ;;
+    upgrade)
         $1
         ;;
     rollback)
         $1
         ;;
     status)
-        rh_status
+        status -p $pidfile $prog
         ;;
     condrestart|try-restart)
-        rh_status_q || exit 0
-        restart
+        status_q || exit 0
+        stop
+        start
         ;;
     *)
-        log_failure_msg $"Usage: $0 {start|stop|status|restart|condrestart|try-restart|reload|force-reload}"
+        log_failure_msg $"Usage: $0 {start|stop|status|restart|upgrade|rollback|condrestart|try-restart|reload}"
         exit 2
 esac
 exit $?

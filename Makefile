@@ -1,20 +1,11 @@
-RELEASE = 1`rpm --eval %{?dist}`
-
-PY_EXTRA = --install-script greins.spec
-REQUIRES = gunicorn >= 0.11, gevent >= 0.13.0, python-werkzeug >= 0.6.2, python-aggregator-client
-CONFLICTS = dradserver-greins <= 2.1
 default:
 	python setup.py build
 
 install:
-	python setup.py install %(root)
+	python setup.py install
 
 rpm:
-	python setup.py bdist_rpm \
-    --release="$(RELEASE)" \
-    --requires "$(REQUIRES)" \
-    --conflicts "$(CONFLICTS)" \
-    $(PY_EXTRA)
+	python setup.py bdist_rpm
 
 clean:
 	rm -rf MANIFEST

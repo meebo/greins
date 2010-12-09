@@ -39,16 +39,10 @@ setup(
     include_package_data = True,
 
     install_requires = ['setuptools'],
+    requires = ['gunicorn (>= 0.11.0)'],
 
     entry_points="""
     [console_scripts]
     greins=greins.app:run
-    """,
-    
-    options = {
-        'bdist_rpm': {
-            'post_install': 'post_install',
-            'pre_uninstall': 'pre_uninstall'
-        }
-    }
+    """
 )
