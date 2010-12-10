@@ -93,7 +93,7 @@ class GreinsApplication(WSGIApplication):
 
                 # Set up server hooks
                 for hook in self._hooks:
-                    handler = cfg.get('def_%s' % hook)
+                    handler = cfg.get('%s' % hook)
                     if handler:
                         self._hooks[hook]['validator'](handler)
                         self._hooks[hook]['handlers'].append(handler)
