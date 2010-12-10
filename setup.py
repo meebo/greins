@@ -10,7 +10,7 @@ setup(
     name = 'greins',
     version = __version__,
 
-    description = 'Greins provides routing and management for Gunicorn.',
+    description = 'Greins is tack for Gunicorn.',
     long_description = file(
         os.path.join(
             os.path.dirname(__file__),
