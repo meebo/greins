@@ -1,10 +1,14 @@
-default:
+.PHONY: clean rpm
+
+default: build
+
+build: greins
 	python setup.py build
 
 install:
 	python setup.py install
 
-rpm:
+rpm: build
 	python setup.py bdist_rpm
 
 clean:
