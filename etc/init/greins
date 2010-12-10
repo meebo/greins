@@ -21,8 +21,8 @@
 # Source function library.
 . /lib/lsb/init-functions
 
-prog=greins
-exec=/usr/bin/$prog
+prog=$0
+exec=/usr/bin/greins
 [ -x $exec ] || exit 5
 
 if [ -d "/etc/sysconfig" ];
@@ -42,9 +42,10 @@ GREINS_OPTIONS=
 
 # if this script was run from a symlink, follow links until we discover a
 # corresponding configuration file or get to the end of the link chain
+# this allows symlinking the init script to configure multiple daemons
 fullname=$0
 basename=$(basename $fullname)
-while [ ! -e /etc/$sysconfig/$basename -a -L $fullname ]
+while [ ! -e $sysconfig/$basename -a -L $fullname ]
 do
     link=$(readlink $fullname)
     if [ $(expr $link : "\.") -gt 0 ]
@@ -67,9 +68,8 @@ log_daemon_msg () {
 }
 
 start() {
-    [ -x $exec ] || exit 5
     log_daemon_msg "Starting $basename: "
-    status_q && log_warning_msg "already running" && exit 0
+    status_q -p $pidfile $prog && log_warning_msg "already running" && exit 0
     $exec -D \
       -p $pidfile \
       --log-file $GREINS_LOG_FILE \
@@ -88,16 +88,18 @@ stop() {
     log_daemon_msg "Stopping $basename: "
     maybe_cleanup_old_master
     retval=0
-    if ! status_q ; then
-        log_warning_msg "already stopped" && exit 0
-    else
-        killproc -p $pidfile $prog -QUIT
-        retval=$?
+    status_q -p $pidfile $prog
+    if [ $? -ne 0 ]
+    then
+        log_warning_msg "already stopped"
+        return 0
     fi
+    killproc -p $pidfile $prog -QUIT
+    retval=$?
     if [ $retval -eq 0 ]; then
         STOPTIMEOUT=60
         while [ $STOPTIMEOUT -gt 1 ]; do
-            status_q || break
+            status_q -p $pidfile $prog || break
             sleep 1
             let STOPTIMEOUT=${STOPTIMEOUT}-1
         done
@@ -115,18 +117,30 @@ stop() {
         else
             rh_unlock
             rm -rf $pidfile
-            log_success_msg "stopped"
+            log_success_msg "done"
         fi
     fi
     return $retval
 }
 
+reload() {
+    log_daemon_msg "Loading a new set of workers: " "kill -HUP"
+    killproc -p $pidfile $prog -HUP
+    retval=$?
+    if [ $retval -eq 0 ]; then
+        log_success_msg "done"
+    else
+        log_error_msg "problem: killproc returned error code $?"
+    fi
+    return $retval
+}
+
 upgrade() {
-    log_daemon_msg "Starting new master: "
+    log_daemon_msg "Starting new master: " "kill -USR2"
     killproc -p $pidfile $prog -USR2
     TIMEOUT=60
     while [ $TIMEOUT -gt 1 ]; do
-        status -p $pidfile.oldbin $prog >/dev/null 2>&1 && status_q && break
+        status_q -p $pidfile.oldbin && status_q -p $pidfile $prog && break
         sleep 1
         let TIMEOUT=${TIMEOUT}-1
     done
@@ -134,10 +148,10 @@ upgrade() {
         log_failure_msg "failed"
         return 1
     else
-        log_success_msg "started"
+        log_daemon_msg "started"
     fi
 
-    echo -n $"Shutting down old workers: "
+    log_daemon_msg "Shutting down old workers: " "kill -WINCH"
     killproc -p $pidfile.oldbin $prog -WINCH
     TIMEOUT=60
     while [ $TIMEOUT -gt 1 ]; do
@@ -146,19 +160,19 @@ upgrade() {
         let TIMEOUT=${TIMEOUT}-1
     done
     if [ $TIMEOUT -eq 0 ]; then
-        log_warning_msg "failed"
+        log_failure_msg "failed"
         return 1
     fi
-    log_success_msg "killed"
+    log_success_msg "done"
     return 0
 }
 
 rollback() {
     log_daemon_msg "Rolling back to old master: "
-    status -p $pidfile.oldbin $prog >/dev/null 2>&1
+    status_q -p $pidfile.oldbin $prog
     if [ $? -ne 0 ]; then
-        log_failure_msg "none found"
-        exit 1
+        log_warning_msg "none found"
+        return 0
     fi
 
     if [ -f $pidfile ]; then
@@ -168,35 +182,36 @@ rollback() {
     killproc -p $pidfile.oldbin $prog -HUP
     killproc -p $pidfile.tmp $prog
     log_success_msg "done"
-    status_q
+    status_q -p $pidfile $prog
 }
 
 maybe_cleanup_old_master() {
-    status -p $pidfile.oldbin $prog >/dev/null 2>&1
+    status_q -p $pidfile.oldbin $prog
     if [ $? -eq 0 ]; then
-        echo -n $"Killing off old, defunct master: "
+        log_daemon_msg "Killing off old, defunct master: "
         killproc -p $pidfile.oldbin $prog
         log_success_msg $"killed"
     fi
     rm -f $pidfile.oldbin
 }
 
-status() {
-    pidofproc $@
+status_of_proc() {
+    # Distros may override this but with RHEL5 we can use status
+    . /etc/init.d/functions
+    status $@
 }
 
 status_q() {
-    status -p $pidfile $prog
-    status >/dev/null 2>&1
+    status_of_proc $@ >/dev/null 2>&1
 }
 
 rh_lock() {
-    [ -d $(basename $lockfile) ] || touch $lockfile
+    [ -d $(basename $lockfile) ] && touch $lockfile
     return
 }
 
 rh_unlock() {
-    [ -d $(basename $lockfile) ] || rm -rf $lockfile
+    [ -d $(basename $lockfile) ] && rm -rf $lockfile
     return
 }
 
@@ -213,7 +228,7 @@ case "$1" in
         start
         ;;
     reload)
-    	killproc -p $pidfile $prog -HUP
+        $1
         ;;
     upgrade)
         $1
@@ -222,10 +237,10 @@ case "$1" in
         $1
         ;;
     status)
-        status -p $pidfile $prog
+        status_of_proc -p $pidfile $prog
         ;;
     condrestart|try-restart)
-        status_q || exit 0
+        status_q -p $pidfile $prog|| exit 0
         stop
         start
         ;;
