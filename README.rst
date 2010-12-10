@@ -55,5 +55,6 @@ Greins is released under the MIT License. See the LICENSE_ file for more
 details.
 
 .. _Gunicorn: http://gunicorn.org/
+.. _WSGI: http://wsgi.org/
 .. _`config file`: http://gunicorn.org/configuration.html
 .. _LICENSE: https://github.com/meebo/greins/blob/master/LICENSE
