@@ -15,9 +15,19 @@ Install from sources::
 
   $ python setup.py install
 
-Or from PyPI::
+Install as an rpm::
 
-  $ easy_install -U greins
+  $ make rpm
+
+Whatever was here before was wrong. There is no place in PyPI for Greins.
+The most useful aspects of Greins are in the packaging, since it aims to
+facilitate deployment of Gunicorn and adds no particular functionality itself.
+
+There's an init script in etc/init aims to be LSB-compliant and packaging
+for other distributions and systems is an ongoing effort.
+
+Those wishing to deploy Greins for their own infrastructure are encouraged
+to contribute to the development.
 
 Basic Usage
 -----------
