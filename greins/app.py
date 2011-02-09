@@ -1,17 +1,12 @@
 import glob
 import inspect
 import os.path
+import textwrap
 
 from gunicorn.app.wsgiapp import WSGIApplication
 from gunicorn.config import make_settings
 
 from greins.router import Router
-
-hook_proxy_template = """\
-def proxy%(spec)s:
-    for handler in greins._hooks[name]['handlers']:
-        handler%(spec)s
-"""
 
 class GreinsApplication(WSGIApplication):
 
@@ -38,6 +33,14 @@ class GreinsApplication(WSGIApplication):
         function (with matching arity in order to pass validation), which
         calls the hook for every loaded app that defines it.
         """
+
+        hook_proxy_template = textwrap.dedent(
+        """
+        def proxy%(spec)s:
+            for handler in greins._hooks[name]['handlers']:
+                handler%(spec)s
+        """)
+
         for name, obj in make_settings().items():
             if obj.section == "Server Hooks":
                 self._hooks[name] = {
