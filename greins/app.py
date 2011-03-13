@@ -77,7 +77,7 @@ class GreinsApplication(WSGIApplication):
             }
             try:
                 """
-                Read ann app configuration from a greins config file.
+                Read an app configuration from a greins config file.
                 Files should contain app handlers with mount points
                 for one or more wsgi applications.
 
