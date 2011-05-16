@@ -83,8 +83,11 @@ class GreinsApplication(WSGIApplication):
 
                 # Load all the mount points
                 for r, a in cfg['mounts'].iteritems():
+                    if not r.startswith('/'):
+                        self.logger.warning("Adding leading '/' to '%s'" % r)
+                        r = '/' + r
                     if r in self._mounts:
-                        self.logger.warning("Duplicate routes for %s" % r)
+                        self.logger.warning("Duplicate routes for '%s'" % r)
                         continue
                     # Capture the handler in a closure
                     def wrap(app):
