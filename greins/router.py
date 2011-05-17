@@ -20,13 +20,15 @@ class Router(object):
     def __call__(self, environ, start_response):
         script = environ.get('PATH_INFO', '')
         path_info = ''
-        while '/' in script:
+        while True:
             if script in self.mounts:
                 environ['SCRIPT_NAME'] = script
                 environ['PATH_INFO'] = path_info
                 return self.mounts[script](environ, start_response)
+            if script == '/':
+                 break
             items = script.split('/')
-            script = '/'.join(items[:-1])
+            script = '/'.join(items[:-1]) or '/'
             path_info = '/%s%s' % (items[-1], path_info)
         start_response(404, [])
         return "Not Found."
