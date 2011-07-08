@@ -2,10 +2,12 @@ import glob
 import inspect
 import os.path
 import textwrap
+import traceback
 
 from gunicorn.app.wsgiapp import WSGIApplication
 from gunicorn.config import make_settings
 
+from greins.reloader import Reloader
 from greins.router import Router
 
 class GreinsApplication(WSGIApplication):
@@ -18,6 +20,7 @@ class GreinsApplication(WSGIApplication):
 
         self.cfg.set("default_proc_name", parser.get_prog_name())
         self.app_dir = os.path.abspath(args[0])
+        self._use_reloader = opts.reloader
 
         self._mounts = {}
         self._hooks = {}
@@ -59,6 +62,8 @@ class GreinsApplication(WSGIApplication):
                 self.cfg.set(name, proxy_env['proxy'])
 
     def load(self):
+        if self._use_reloader:
+            reloader = Reloader()
         for cf in glob.glob(os.path.join(self.app_dir, '*.py')):
             cf_name = os.path.splitext(os.path.basename(cf))[0]
             cfg = {
@@ -103,10 +108,17 @@ class GreinsApplication(WSGIApplication):
                     if handler:
                         self._hooks[hook]['validator'](handler)
                         self._hooks[hook]['handlers'].append(handler)
-            except:
+            except Exception, e:
+                if self._use_reloader:
+                    for fname, _, _, _ in traceback.extract_tb(sys.exc_info()[2]):
+                         reloader.extra_files.add(fname)
+                    if isinstance(e, SyntaxError):
+                         reloader.extra_files.add(e.filename)
                 self.logger.exception("Exception reading config for %s:" % \
                                       cf_name)
 
+        if self._use_reloader:
+            reloader.start()
         router = Router(mounts=self._mounts)
         self.logger.info("Greins booted successfully.")
         self.logger.debug("Routes:\n%s" % router)
