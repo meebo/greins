@@ -206,12 +206,12 @@ status_q() {
 }
 
 rh_lock() {
-    [ -d $(basename $lockfile) ] && touch $lockfile
+    [ -e $lockfile ] && touch $lockfile
     return
 }
 
 rh_unlock() {
-    [ -d $(basename $lockfile) ] && rm -rf $lockfile
+    [ -e $lockfile ] && rm -rf $lockfile
     return
 }
 
