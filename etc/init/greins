@@ -77,11 +77,13 @@ start() {
       -b $GREINS_BIND_ADDR \
       $GREINS_OPTIONS \
       $GREINS_CONF_D >/dev/null
-    retval=$?
-    [ $retval -eq 0 ] && rh_lock && \
-        log_success_msg "done" || \
+    if [ $? -ne 0 ]; then
         log_failure_msg "failed"
-    return $retval
+        return 1
+    fi
+    rh_lock
+    log_success_msg "done"
+    return 0
 }
 
 stop() {
@@ -206,7 +208,8 @@ status_q() {
 }
 
 rh_lock() {
-    [ -e $lockfile ] && touch $lockfile
+    [ -d $(basename $lockfile) ] && mkdir -p $(basename $lockfile)
+    touch $lockfile
     return
 }
 
