@@ -69,7 +69,7 @@ log_daemon_msg () {
 
 start() {
     log_daemon_msg "Starting $basename: "
-    status_q -p $pidfile $prog && log_warning_msg "already running" && exit 1
+    status_q -p $pidfile $prog && log_warning_msg "already running" && exit 0
     $exec -D \
       -p $pidfile \
       --log-file $GREINS_LOG_FILE \
