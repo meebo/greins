@@ -88,11 +88,10 @@ start() {
 
 stop() {
     log_daemon_msg "Stopping $basename: "
-    maybe_cleanup_old_master
+    status_q -p $pidfile.oldbin $prog && cleanup
     retval=0
     status_q -p $pidfile $prog
-    if [ $? -ne 0 ]
-    then
+    if [ $? -ne 0 ]; then
         log_warning_msg "already stopped"
         return 0
     fi
@@ -126,7 +125,7 @@ stop() {
 }
 
 reload() {
-    log_daemon_msg "Loading a new set of workers: " "kill -HUP"
+    log_daemon_msg "Loading a new set of workers: "
     killproc -p $pidfile $prog -HUP
     retval=$?
     if [ $retval -eq 0 ]; then
@@ -138,11 +137,12 @@ reload() {
 }
 
 upgrade() {
-    log_daemon_msg "Starting new master: " "kill -USR2"
+    log_daemon_msg "Starting new master: "
+    status_q -p $pidfile.oldbin $prog && log_warning_msg "already running: run cleanup or rollback first" && exit 0
     killproc -p $pidfile $prog -USR2
     TIMEOUT=60
     while [ $TIMEOUT -gt 1 ]; do
-        status_q -p $pidfile.oldbin && status_q -p $pidfile $prog && break
+        status_q -p $pidfile.oldbin $prog && status_q -p $pidfile $prog && break
         sleep 1
         let TIMEOUT=${TIMEOUT}-1
     done
@@ -153,7 +153,7 @@ upgrade() {
         log_daemon_msg "started"
     fi
 
-    log_daemon_msg "Shutting down old workers: " "kill -WINCH"
+    log_daemon_msg "Shutting down old workers: "
     killproc -p $pidfile.oldbin $prog -WINCH
     TIMEOUT=60
     while [ $TIMEOUT -gt 1 ]; do
@@ -173,7 +173,7 @@ rollback() {
     log_daemon_msg "Rolling back to old master: "
     status_q -p $pidfile.oldbin $prog
     if [ $? -ne 0 ]; then
-        log_warning_msg "none found"
+        log_warning_msg "no old master found"
         return 0
     fi
 
@@ -187,14 +187,25 @@ rollback() {
     status_q -p $pidfile $prog
 }
 
-maybe_cleanup_old_master() {
+cleanup() {
+    log_daemon_msg "Killing off old master: "
     status_q -p $pidfile.oldbin $prog
-    if [ $? -eq 0 ]; then
-        log_daemon_msg "Killing off old, defunct master: "
+    if [ $? -ne 0 ]; then
+        log_warning_msg "no old master found"
+        return 0
+    fi
+    killproc -p $pidfile.oldbin $prog -QUIT
+    TIMEOUT=60
+    while [ $TIMEOUT -gt 1 ]; do
+        status_q -p $pidfile.oldbin $prog && break
+        sleep 1
+        let TIMEOUT=${TIMEOUT}-1
+    done
+    if [ $TIMEOUT -eq 0 ]; then
         killproc -p $pidfile.oldbin $prog
-        log_success_msg $"killed"
     fi
     rm -f $pidfile.oldbin
+    log_success_msg $"killed"
 }
 
 status_of_proc() {
@@ -239,6 +250,9 @@ case "$1" in
     rollback)
         $1
         ;;
+    cleanup)
+        $1
+        ;;
     status)
         status_of_proc -p $pidfile $prog
         ;;
@@ -248,7 +262,8 @@ case "$1" in
         start
         ;;
     *)
-        log_failure_msg $"Usage: $0 {start|stop|status|restart|upgrade|rollback|condrestart|try-restart|reload}"
+        echo "Usage: $0 {start|stop|status|restart|upgrade|cleanup|rollback|condrestart|try-restart|reload}"
+        log_failure_msg $"Unknown command"
         exit 2
 esac
 exit $?
