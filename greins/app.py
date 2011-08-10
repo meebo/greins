@@ -3,6 +3,7 @@ import inspect
 import os.path
 import sys
 import textwrap
+import threading
 import traceback
 
 from gunicorn.app.wsgiapp import WSGIApplication
