@@ -87,19 +87,19 @@ class GreinsApplication(WSGIApplication):
 
             # Load all the mount points
             for r, a in cfg['mounts'].iteritems():
-                if not r.startswith('/'):
-                    self.logger.warning("Adding leading '/' to '%s'" % r)
-                    r = '/' + r
-                if r in self._mounts:
-                    self.logger.warning("Duplicate routes for '%s'" % r)
-                    continue
                 # Capture the handler in a closure
                 def wrap(app):
                     def app_with_env(env, start_response):
                         return app(env, start_response)
                     app_with_env.__name__ = app.__name__
                     return app_with_env
-                self._mounts[r] = wrap(a)
+                wrapped = wrap(a)
+                if not r.startswith('/'):
+                    self.logger.warning("Adding leading '/' to '%s'" % r)
+                    r = '/' + r
+                if self._mounts.setdefault(r, wrapped) != wrapped:
+                    self.logger.warning("Duplicate routes for '%s'" % r)
+                    continue
 
             # Set up server hooks
             for hook in self._hooks:
