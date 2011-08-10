@@ -62,61 +62,69 @@ class GreinsApplication(WSGIApplication):
                 exec hook_proxy_template % {'spec': spec} in proxy_env
                 self.cfg.set(name, proxy_env['proxy'])
 
+    def load_file(self,cf):
+        cf_name = os.path.splitext(os.path.basename(cf))[0]
+        cfg = {
+            "__builtins__": __builtins__,
+            "__name__": "__config__",
+            "__file__": os.path.abspath(cf),
+            "__doc__": None,
+            "__package__": None,
+            "mounts": {}
+        }
+        try:
+            """
+            Read an app configuration from a greins config file.
+            Files should contain app handlers with mount points
+            for one or more wsgi applications.
+
+            The handlers will be executed inside the environment
+            created by the configuration file.
+            """
+            self.logger.info("Loading configuration for %s" % cf_name)
+            execfile(cf, cfg, cfg)
+
+            # Load all the mount points
+            for r, a in cfg['mounts'].iteritems():
+                if not r.startswith('/'):
+                    self.logger.warning("Adding leading '/' to '%s'" % r)
+                    r = '/' + r
+                if r in self._mounts:
+                    self.logger.warning("Duplicate routes for '%s'" % r)
+                    continue
+                # Capture the handler in a closure
+                def wrap(app):
+                    def app_with_env(env, start_response):
+                        return app(env, start_response)
+                    app_with_env.__name__ = app.__name__
+                    return app_with_env
+                self._mounts[r] = wrap(a)
+
+            # Set up server hooks
+            for hook in self._hooks:
+                handler = cfg.get('%s' % hook)
+                if handler:
+                    self._hooks[hook]['validator'](handler)
+                    self._hooks[hook]['handlers'].append(handler)
+        except Exception, e:
+            if self._use_reloader:
+                for fname, _, _, _ in traceback.extract_tb(sys.exc_info()[2]):
+                     reloader.extra_files.add(fname)
+                if isinstance(e, SyntaxError):
+                     reloader.extra_files.add(e.filename)
+            self.logger.exception("Exception reading config for %s:" % \
+                                      cf_name)
+
     def load(self):
         if self._use_reloader:
             reloader = Reloader()
         for cf in glob.glob(os.path.join(self.app_dir, '*.py')):
-            cf_name = os.path.splitext(os.path.basename(cf))[0]
-            cfg = {
-                "__builtins__": __builtins__,
-                "__name__": "__config__",
-                "__file__": os.path.abspath(cf),
-                "__doc__": None,
-                "__package__": None,
-                "mounts": {}
-            }
-            try:
-                """
-                Read an app configuration from a greins config file.
-                Files should contain app handlers with mount points
-                for one or more wsgi applications.
-
-                The handlers will be executed inside the environment
-                created by the configuration file.
-                """
-                self.logger.info("Loading configuration for %s" % cf_name)
-                execfile(cf, cfg, cfg)
-
-                # Load all the mount points
-                for r, a in cfg['mounts'].iteritems():
-                    if not r.startswith('/'):
-                        self.logger.warning("Adding leading '/' to '%s'" % r)
-                        r = '/' + r
-                    if r in self._mounts:
-                        self.logger.warning("Duplicate routes for '%s'" % r)
-                        continue
-                    # Capture the handler in a closure
-                    def wrap(app):
-                        def app_with_env(env, start_response):
-                            return app(env, start_response)
-                        app_with_env.__name__ = app.__name__
-                        return app_with_env
-                    self._mounts[r] = wrap(a)
-
-                # Set up server hooks
-                for hook in self._hooks:
-                    handler = cfg.get('%s' % hook)
-                    if handler:
-                        self._hooks[hook]['validator'](handler)
-                        self._hooks[hook]['handlers'].append(handler)
-            except Exception, e:
-                if self._use_reloader:
-                    for fname, _, _, _ in traceback.extract_tb(sys.exc_info()[2]):
-                         reloader.extra_files.add(fname)
-                    if isinstance(e, SyntaxError):
-                         reloader.extra_files.add(e.filename)
-                self.logger.exception("Exception reading config for %s:" % \
-                                      cf_name)
+            # isolate config loads on different threads (or greenlets if
+            # this is a gevent worker).  If one of the apps fails to
+            # start cleanly, the other apps will still function
+            # properly.
+            t = threading.Thread(target=self.load_file, args=[cf])
+            t.start()
 
         if self._use_reloader:
             reloader.start()
