@@ -120,6 +120,11 @@ class GreinsApplication(WSGIApplication):
         if self._use_reloader:
             self._reloader = Reloader()
         for cf in glob.glob(os.path.join(self.app_dir, '*.py')):
+            # The reloader can automatically detect changes to modules,
+            # but can't detect changes to the config file because it is
+            # run via execfile(), so we add it explicitly.
+            if self._use_reloader:
+                self._reloader.extra_files.add(cf)
             # isolate config loads on different threads (or greenlets if
             # this is a gevent worker).  If one of the apps fails to
             # start cleanly, the other apps will still function
