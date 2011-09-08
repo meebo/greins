@@ -24,6 +24,7 @@ class Reloader(threading.Thread):
 
     def __init__(self, extra_files=None, interval=1):
         super(Reloader, self).__init__()
+        self.setDaemon(True)
         self.extra_files = set(extra_files or ())
         self.interval = interval
 

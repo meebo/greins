@@ -110,16 +110,21 @@ class GreinsApplication(WSGIApplication):
         except Exception, e:
             if self._use_reloader:
                 for fname, _, _, _ in traceback.extract_tb(sys.exc_info()[2]):
-                     reloader.extra_files.add(fname)
+                     self._reloader.extra_files.add(fname)
                 if isinstance(e, SyntaxError):
-                     reloader.extra_files.add(e.filename)
+                     self._reloader.extra_files.add(e.filename)
             self.logger.exception("Exception reading config for %s:" % \
                                       cf_name)
 
     def load(self):
         if self._use_reloader:
-            reloader = Reloader()
+            self._reloader = Reloader()
         for cf in glob.glob(os.path.join(self.app_dir, '*.py')):
+            # The reloader can automatically detect changes to modules,
+            # but can't detect changes to the config file because it is
+            # run via execfile(), so we add it explicitly.
+            if self._use_reloader:
+                self._reloader.extra_files.add(cf)
             # isolate config loads on different threads (or greenlets if
             # this is a gevent worker).  If one of the apps fails to
             # start cleanly, the other apps will still function
@@ -128,7 +133,7 @@ class GreinsApplication(WSGIApplication):
             t.start()
 
         if self._use_reloader:
-            reloader.start()
+            self._reloader.start()
         router = Router(mounts=self._mounts)
         self.logger.info("Greins booted successfully.")
         self.logger.debug("Routes:\n%s" % router)
