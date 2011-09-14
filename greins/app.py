@@ -1,5 +1,6 @@
 import glob
 import inspect
+import logging
 import os.path
 import sys
 import textwrap
@@ -22,6 +23,7 @@ class GreinsApplication(WSGIApplication):
 
         self.cfg.set("default_proc_name", parser.get_prog_name())
         self.app_dir = os.path.abspath(args[0])
+        self.logger = logging.getLogger('gunicorn.error')
         self._use_reloader = opts.reloader
 
         self._mounts = {}
