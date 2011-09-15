@@ -30,5 +30,5 @@ class Router(object):
             items = script.split('/')
             script = '/'.join(items[:-1]) or '/'
             path_info = '/%s%s' % (items[-1], path_info)
-        start_response(404, [])
+        start_response('404 NOT FOUND', [])
         return "Not Found."
