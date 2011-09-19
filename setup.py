@@ -38,7 +38,7 @@ setup(
     packages = find_packages(exclude=['test']),
     include_package_data = True,
 
-    install_requires = ['setuptools', 'gunicorn >= 0.11.0'],
+    install_requires = ['setuptools', 'gunicorn >= 0.13.0'],
 
     entry_points="""
     [console_scripts]
