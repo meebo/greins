@@ -1,11 +1,13 @@
+from threading import RLock
 from greins.synchronization import synchronized
 
 # Based on werkzeug.DispatcherMiddleware
 class Router(object):
-    synchronize_mounts = synchronized('mounts')
+    synchronize_mounts = synchronized('_mounts_lock')
 
     def __init__(self, mounts={}):
         self._mounts = mounts
+        self._mounts_lock = RLock()
 
     @synchronize_mounts
     def add_mount(self, route, handler):

@@ -21,12 +21,13 @@ class ReloaderSetting(gunicorn.config.Setting):
 
 
 class Reloader(threading.Thread):
-    synchronize_extra_files = synchronized('extra_files')
+    synchronize_extra_files = synchronized('_extra_files_lock')
 
     def __init__(self, extra_files=None, interval=1):
         super(Reloader, self).__init__()
         self.setDaemon(True)
         self._extra_files = set(extra_files or ())
+        self._extra_files_lock = threading.RLock()
         self._interval = interval
 
     @synchronize_extra_files

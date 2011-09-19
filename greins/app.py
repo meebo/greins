@@ -15,7 +15,7 @@ from greins.router import Router
 from greins.synchronization import synchronized
 
 class GreinsApplication(WSGIApplication):
-    synchronize_hooks = synchronized('hooks')
+    synchronize_hooks = synchronized('_hooks_lock')
 
     def init(self, parser, opts, args):
         if len(args) != 1:
@@ -28,6 +28,7 @@ class GreinsApplication(WSGIApplication):
         self.logger = logging.getLogger('gunicorn.error')
         self._use_reloader = opts.reloader
         self._hooks = {}
+        self._hooks_lock = threading.RLock()
 
         """
         Set up server hook proxies
