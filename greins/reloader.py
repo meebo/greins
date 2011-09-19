@@ -4,7 +4,7 @@ import signal
 import sys
 import time
 import threading
-
+from greins.synchronization import synchronized
 
 class ReloaderSetting(gunicorn.config.Setting):
     name = 'reloader'
@@ -21,12 +21,22 @@ class ReloaderSetting(gunicorn.config.Setting):
 
 
 class Reloader(threading.Thread):
+    synchronize_extra_files = synchronized('_extra_files_lock')
 
     def __init__(self, extra_files=None, interval=1):
         super(Reloader, self).__init__()
         self.setDaemon(True)
-        self.extra_files = set(extra_files or ())
-        self.interval = interval
+        self._extra_files = set(extra_files or ())
+        self._extra_files_lock = threading.RLock()
+        self._interval = interval
+
+    @synchronize_extra_files
+    def add_extra_file(self, filename):
+        self._extra_files.add(filename)
+
+    @synchronize_extra_files
+    def extend_by_extra_files(self, destination):
+        destination.extend(self._extra_files)
 
     def get_files(self):
         # Copyright notice.  This function is based on the autoreload.py from
@@ -47,7 +57,7 @@ class Reloader(threading.Thread):
                         yield filename
         fnames = []
         fnames.extend(iter_module_files())
-        fnames.extend(self.extra_files)
+        self.extend_by_extra_files(fnames)
         return fnames
 
     def run(self):
@@ -65,6 +75,4 @@ class Reloader(threading.Thread):
                 elif mtime > old_time:
                     print ' * Detected change in %r, reloading' % filename
                     os.kill(os.getpid(), signal.SIGQUIT)
-            time.sleep(self.interval)
-
-
+            time.sleep(self._interval)
