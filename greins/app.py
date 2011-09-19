@@ -12,8 +12,10 @@ from gunicorn.config import make_settings
 
 from greins.reloader import Reloader
 from greins.router import Router
+from greins.synchronization import synchronized
 
 class GreinsApplication(WSGIApplication):
+    synchronize_hooks = synchronized('hooks')
 
     def init(self, parser, opts, args):
         if len(args) != 1:
@@ -25,8 +27,6 @@ class GreinsApplication(WSGIApplication):
         self.app_dir = os.path.abspath(args[0])
         self.logger = logging.getLogger('gunicorn.error')
         self._use_reloader = opts.reloader
-
-        self._mounts = {}
         self._hooks = {}
 
         """
@@ -44,8 +44,7 @@ class GreinsApplication(WSGIApplication):
         hook_proxy_template = textwrap.dedent(
         """
         def proxy%(spec)s:
-            for handler in greins._hooks[name]['handlers']:
-                handler%(spec)s
+            greins._do_hook(name, %(spec)s)
         """)
 
         for name, obj in make_settings().items():
@@ -65,7 +64,7 @@ class GreinsApplication(WSGIApplication):
                 exec hook_proxy_template % {'spec': spec} in proxy_env
                 self.cfg.set(name, proxy_env['proxy'])
 
-    def load_file(self,cf):
+    def load_file(self, cf):
         cf_name = os.path.splitext(os.path.basename(cf))[0]
         cfg = {
             "__builtins__": __builtins__,
@@ -99,26 +98,22 @@ class GreinsApplication(WSGIApplication):
                 if not r.startswith('/'):
                     self.logger.warning("Adding leading '/' to '%s'" % r)
                     r = '/' + r
-                if self._mounts.setdefault(r, wrapped) != wrapped:
+                if self._router.add_mount(r, wrapped) != wrapped:
                     self.logger.warning("Duplicate routes for '%s'" % r)
                     continue
 
-            # Set up server hooks
-            for hook in self._hooks:
-                handler = cfg.get('%s' % hook)
-                if handler:
-                    self._hooks[hook]['validator'](handler)
-                    self._hooks[hook]['handlers'].append(handler)
+            self._setup_hooks(cfg)
         except Exception, e:
             if self._use_reloader:
                 for fname, _, _, _ in traceback.extract_tb(sys.exc_info()[2]):
-                     self._reloader.extra_files.add(fname)
+                     self._reloader.add_extra_file(fname)
                 if isinstance(e, SyntaxError):
-                     self._reloader.extra_files.add(e.filename)
+                     self._reloader.add_extra_file(e.filename)
             self.logger.exception("Exception reading config for %s:" % \
                                       cf_name)
 
     def load(self):
+        self._router = Router()
         if self._use_reloader:
             self._reloader = Reloader()
         for cf in glob.glob(os.path.join(self.app_dir, '*.py')):
@@ -126,7 +121,7 @@ class GreinsApplication(WSGIApplication):
             # but can't detect changes to the config file because it is
             # run via execfile(), so we add it explicitly.
             if self._use_reloader:
-                self._reloader.extra_files.add(cf)
+                self._reloader.add_extra_file(cf)
             # isolate config loads on different threads (or greenlets if
             # this is a gevent worker).  If one of the apps fails to
             # start cleanly, the other apps will still function
@@ -136,11 +131,19 @@ class GreinsApplication(WSGIApplication):
 
         if self._use_reloader:
             self._reloader.start()
-        router = Router(mounts=self._mounts)
         self.logger.info("Greins booted successfully.")
-        self.logger.debug("Routes:\n%s" % router)
-        return router
+        self.logger.debug("Routes:\n%s" % self._router)
+        return self._router
 
+    @synchronize_hooks
+    def _setup_hooks(self, cfg):
+        for name, hook in self._hooks.items():
+            handler = cfg.get(name)
+            if handler:
+                hook['validator'](handler)
+                hook['handlers'].append(handler)
+
+    @synchronize_hooks
     def _do_hook(self, name, argtuple):
         for handler in self._hooks[name]['handlers']:
             handler(*argtuple)
