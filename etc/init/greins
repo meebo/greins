@@ -81,6 +81,15 @@ start() {
         log_failure_msg "failed"
         return 1
     fi
+    STARTTIMEOUT=60
+    while [ $STARTTIMEOUT -gt 1 ]; do
+        status_q -p $pidfile $prog && break
+        sleep 1
+        let STARTTIMEOUT=${STARTTIMEOUT}-1
+    done
+    if [ $STARTTIMEOUT -eq 0 ]; then
+        log_warning_msg "did not start within a reasonable amount of time."
+    fi
     rh_lock
     log_success_msg "done"
     return 0
