@@ -122,6 +122,8 @@ class GreinsApplication(WSGIApplication):
 
         if self._use_reloader:
             self._reloader = Reloader()
+            self._reloader.start()
+
         for cf in glob.glob(os.path.join(self.app_dir, '*.py')):
             # The reloader can automatically detect changes to modules,
             # but can't detect changes to the config file because it is
@@ -135,8 +137,6 @@ class GreinsApplication(WSGIApplication):
             t = threading.Thread(target=self.load_file, args=[cf])
             t.start()
 
-        if self._use_reloader:
-            self._reloader.start()
         self.logger.info("Greins booted successfully.")
         self.logger.debug("Routes:\n%s" % self._router)
         return self._router
