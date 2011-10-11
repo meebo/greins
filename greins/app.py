@@ -4,7 +4,6 @@ import logging
 import os.path
 import sys
 import textwrap
-import threading
 import traceback
 
 from gunicorn.app.wsgiapp import WSGIApplication
@@ -26,10 +25,12 @@ class GreinsApplication(WSGIApplication):
         self.cfg.set("default_proc_name", parser.get_prog_name())
         self.app_dir = os.path.abspath(args[0])
         self.logger = logging.getLogger('gunicorn.error')
+
         self._use_reloader = opts.reloader
         self._hooks = {}
-        self._hooks_lock = threading.RLock()
+        self._hooks_lock = None
 
+    def setup_hooks(self):
         """
         Set up server hook proxies
 
@@ -114,7 +115,11 @@ class GreinsApplication(WSGIApplication):
                                       cf_name)
 
     def load(self):
+        import threading
         self._router = Router()
+        self._hooks_lock = threading.RLock()
+        self.setup_hooks()
+
         if self._use_reloader:
             self._reloader = Reloader()
         for cf in glob.glob(os.path.join(self.app_dir, '*.py')):
