@@ -58,6 +58,20 @@ It should be possible to write an application for Gunicorn_ and then place
 the application's configuration inside the configuration directory for Greins
 to begin using it within Greins immediately.
 
+Examples
+++++++++
+
+The examples directory runs a single ``greins`` application from the file
+``test.py`` which demonstrates loading several routes as well as using the
+``gunicorn`` server hooks. To run the examples, launch ``greins`` from the
+directory above ``examples`` with:
+
+  $ greins examples
+
+The ``greins`` command accepts ``gunicorn`` options. For example:
+
+  $ greins -kgevent -b0.0.0.0:8080 examples
+
 LICENSE
 -------
 
