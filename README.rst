@@ -54,9 +54,15 @@ are valid in these configuration files and work as in Gunicorn_. Other options,
 such as logging and worker configuration, are ignored and should be configured
 globally for the Greins application.
 
+As a convenience, a file name ``myapp`` which does not define any ``mounts``
+will try to import ``myapp:application`` and mount it underneath the path
+``/myapp``.
+
 It should be possible to write an application for Gunicorn_ and then place
-the application's configuration inside the configuration directory for Greins
-to begin using it within Greins immediately.
+a Gunicorn_ configuration file inside the configuration directory for Greins
+to begin using it within Greins immediately, provided that the config file name
+matches a module in the python path which exports ``application`` as a WSGI_
+callable.
 
 Examples
 ++++++++

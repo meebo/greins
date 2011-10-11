@@ -8,6 +8,7 @@ import traceback
 
 from gunicorn.app.wsgiapp import WSGIApplication
 from gunicorn.config import make_settings
+from gunicorn.util import import_app
 
 from greins.reloader import Reloader
 from greins.router import Router
@@ -87,6 +88,11 @@ class GreinsApplication(WSGIApplication):
             """
             self.logger.info("Loading configuration for %s" % cf_name)
             execfile(cf, cfg, cfg)
+
+            # By default, try to mount the application by name
+            if not cfg['mounts']:
+                app_name, ext = os.path.splitext(os.path.basename(cf))
+                cfg['mounts'][app_name] = import_app(app_name)
 
             # Load all the mount points
             for r, a in cfg['mounts'].iteritems():
