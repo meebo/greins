@@ -92,7 +92,7 @@ class GreinsApplication(WSGIApplication):
             # By default, try to mount the application by name
             if not cfg['mounts']:
                 app_name, ext = os.path.splitext(os.path.basename(cf))
-                cfg['mounts'][app_name] = import_app(app_name)
+                cfg['mounts']['/' + app_name] = import_app(app_name)
 
             # Load all the mount points
             for r, a in cfg['mounts'].iteritems():
