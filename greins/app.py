@@ -107,8 +107,8 @@ class GreinsApplication(WSGIApplication):
                     self.logger.warning("Adding leading '/' to '%s'" % r)
                     r = '/' + r
                 if self._router.add_mount(r, wrapped) != wrapped:
-                    self.logger.warning("Duplicate routes for '%s'" % r)
-                    continue
+                    self.logger.error("Found conflicting routes for '%s'" % r)
+                    sys.exit(1)
 
             self._setup_hooks(cfg)
         except Exception, e:
