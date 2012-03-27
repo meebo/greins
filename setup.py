@@ -17,8 +17,9 @@ setup(
             'README.rst'
         )
     ).read(),
-    author = 'Randall Leeds',
-    author_email = 'randall@meebo-inc.com',
+    author = 'Meebo, Inc. and contributors',
+    maintainer = 'Randall Leeds',
+    maintainer_email = 'randall.leeds@gmail.com',
     url = 'http://github.com/meebo/greins',
     license = 'MIT License',
 
