@@ -96,17 +96,10 @@ class GreinsApplication(WSGIApplication):
 
             # Load all the mount points
             for r, a in cfg['mounts'].iteritems():
-                # Capture the handler in a closure
-                def wrap(app):
-                    def app_with_env(env, start_response):
-                        return app(env, start_response)
-                    app_with_env.__name__ = app.__name__
-                    return app_with_env
-                wrapped = wrap(a)
                 if not r.startswith('/'):
                     self.logger.warning("Adding leading '/' to '%s'" % r)
                     r = '/' + r
-                if self._router.add_mount(r, wrapped) != wrapped:
+                if self._router.add_mount(r, a) != a:
                     self.logger.error("Found conflicting routes for '%s'" % r)
                     sys.exit(1)
 
