@@ -44,5 +44,8 @@ setup(
     entry_points="""
     [console_scripts]
     greins=greins.app:run
+
+    [gunicorn.loggers]
+    greins=greins.app:GreinsLogger
     """
 )

@@ -6,13 +6,51 @@ import sys
 import textwrap
 import traceback
 
+from logging import getLogger, Formatter, NOTSET
+from logging.handlers import MemoryHandler
+
 from gunicorn.app.wsgiapp import WSGIApplication
 from gunicorn.config import make_settings
+from gunicorn.glogging import Logger
 from gunicorn.util import import_app
 
 from greins.reloader import Reloader
 from greins.router import Router
 from greins.synchronization import synchronized
+
+class GreinsLogger(Logger):
+    """
+    A `gunicorn.glogging.Logger` subclass which sets up a
+    `logging.handlers.MemoryHandler` that delegates to the gunicorn error
+    logger but filters out the messages from the gunicorn package.
+
+    """
+
+    root_handler = None
+    error_fmt = r"%(asctime)s [%(process)d] [%(levelname)s] [%(name)s] %(message)s"
+
+    @classmethod
+    def install(cls):
+        """
+        Invoked by the gunicorn config system to perform one-time, class-level
+        initialization of the logger.
+        """
+        cls.root_handler = MemoryHandler(0)
+        cls.root_handler.addFilter(cls)
+        getLogger().addHandler(cls.root_handler)
+        getLogger().setLevel(NOTSET)
+
+    @staticmethod
+    def filter(record):
+        return not record.name.startswith('gunicorn')
+
+    def setup(self, cfg):
+        """
+        Resets the target of the forwarding, root handler whenever the
+        logger is reset.
+        """
+        super(GreinsLogger, self).setup(cfg)
+        self.root_handler.setTarget(self._get_gunicorn_handler(self.error_log))
 
 class GreinsApplication(WSGIApplication):
     synchronize_hooks = synchronized('_hooks_lock')
@@ -24,8 +62,9 @@ class GreinsApplication(WSGIApplication):
             parser.error("APP_DIR must refer to an existing directory.")
 
         self.cfg.set("default_proc_name", parser.get_prog_name())
+        self.cfg.set("logger_class", 'greins.app.GreinsLogger')
         self.app_dir = os.path.abspath(args[0])
-        self.logger = logging.getLogger('gunicorn.error')
+        self.logger = getLogger(__name__)
 
         self._use_reloader = opts.reloader
         self._hooks = {}
