@@ -21,5 +21,6 @@ def create_app(*body_parts):
 mounts = {
     '/hello': create_app('Hello, World!\n'),
     '/goodbye': create_app('Goodbye, cruel World!\n'),
-    '/multi': create_app('Two ', 'Chunks', '\n')
+    '/multi': create_app('Two ', 'Chunks', '\n'),
+    '': create_app('Root', '\n')
 }

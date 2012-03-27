@@ -99,7 +99,7 @@ class GreinsApplication(WSGIApplication):
                 if r.endswith('/'):
                     self.logger.warning("Stripping trailing '/' from '%s'" % r)
                     r = r.rstrip('/')
-                elif not r.startswith('/'):
+                if r and not r.startswith('/'):
                     self.logger.warning("Adding leading '/' to '%s'" % r)
                     r = '/' + r
                 if self._router.add_mount(r, a) != a:
