@@ -96,7 +96,10 @@ class GreinsApplication(WSGIApplication):
 
             # Load all the mount points
             for r, a in cfg['mounts'].iteritems():
-                if not r.startswith('/'):
+                if r.endswith('/'):
+                    self.logger.warning("Stripping trailing '/' from '%s'" % r)
+                    r = r.rstrip('/')
+                elif not r.startswith('/'):
                     self.logger.warning("Adding leading '/' to '%s'" % r)
                     r = '/' + r
                 if self._router.add_mount(r, a) != a:

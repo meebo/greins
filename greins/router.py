@@ -33,18 +33,19 @@ class Router(object):
             for row in table)
 
     def __call__(self, environ, start_response):
-        script = environ.get('PATH_INFO', '')
-        path_info = ''
+        path_info = environ['PATH_INFO']
+        script = path_info.rstrip('/')
+        parts = path_info.split('/')
         while True:
             mount = self.get_mount(script)
             if mount is not None:
                 environ['SCRIPT_NAME'] = script
-                environ['PATH_INFO'] = path_info
+                if script:
+                    environ['PATH_INFO'] = path_info.split(script, 1)[1]
                 return mount(environ, start_response)
-            if script == '/':
+            if script == '':
                  break
-            items = script.split('/')
-            script = '/'.join(items[:-1]) or '/'
-            path_info = '/%s%s' % (items[-1], path_info)
+            parts.pop()
+            script = '/'.join(parts)
         start_response('404 NOT FOUND', [])
         return "Not Found.\n"
