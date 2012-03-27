@@ -116,6 +116,9 @@ class GreinsApplication(WSGIApplication):
             self.logger.exception("Exception reading config for %s:" % \
                                       cf_name)
 
+        self.logger.debug("Finished loading %s" % cf_name)
+        self.logger.debug("Router configuration: \n%s" % self._router)
+
     def load(self):
         import threading
         self._router = Router()
@@ -140,7 +143,6 @@ class GreinsApplication(WSGIApplication):
             t.start()
 
         self.logger.info("Greins booted successfully.")
-        self.logger.debug("Routes:\n%s" % self._router)
         return self._router
 
     @synchronize_hooks

@@ -21,7 +21,7 @@ class Router(object):
     def __str__(self):
         # Technique taken from Routes mapper class
         table = [('Path', 'App')] + \
-                [(path, "%s.%s" % (app.__module__, app.__name__))
+                [('"%s"' % path, '%s' % app)
                  for path, app in self._mounts.items()]
 
         widths = [max(len(row[col]) for row in table)
